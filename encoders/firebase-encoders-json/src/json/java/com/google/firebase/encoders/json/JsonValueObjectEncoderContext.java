@@ -30,9 +30,45 @@ import java.util.Date;
 import java.util.Map;
 
 final class JsonValueObjectEncoderContext implements ObjectEncoderContext, ValueEncoderContext {
+  private static final class NullWriter extends Writer {
+    private final Writer delegate;
+    private boolean consumeNull = false;
+
+    private NullWriter(Writer delegate) {
+      this.delegate = delegate;
+    }
+
+    public void setConsumeNull(boolean consumeNull) {
+      this.consumeNull = consumeNull;
+    }
+
+    @Override
+    public void write(String str) throws IOException {
+      if (consumeNull && "null".equals(str)) {
+        return;
+      }
+      delegate.write(str);
+    }
+
+    @Override
+    public void write(char[] cbuf, int off, int len) throws IOException {
+      delegate.write(cbuf, off, len);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      delegate.flush();
+    }
+
+    @Override
+    public void close() throws IOException {
+      delegate.close();
+    }
+  }
 
   private JsonValueObjectEncoderContext childContext = null;
   private boolean active = true;
+  private final NullWriter nullWriter;
   private final JsonWriter jsonWriter;
   private final Map<Class<?>, ObjectEncoder<?>> objectEncoders;
   private final Map<Class<?>, ValueEncoder<?>> valueEncoders;
@@ -45,7 +81,8 @@ final class JsonValueObjectEncoderContext implements ObjectEncoderContext, Value
       @NonNull Map<Class<?>, ValueEncoder<?>> valueEncoders,
       ObjectEncoder<Object> fallbackEncoder,
       boolean ignoreNullValues) {
-    this.jsonWriter = new JsonWriter(writer);
+    this.nullWriter = new NullWriter(writer);
+    this.jsonWriter = new JsonWriter(nullWriter);
     this.objectEncoders = objectEncoders;
     this.valueEncoders = valueEncoders;
     this.fallbackEncoder = fallbackEncoder;
@@ -53,6 +90,7 @@ final class JsonValueObjectEncoderContext implements ObjectEncoderContext, Value
   }
 
   private JsonValueObjectEncoderContext(JsonValueObjectEncoderContext anotherContext) {
+    this.nullWriter = anotherContext.nullWriter;
     this.jsonWriter = anotherContext.jsonWriter;
     this.objectEncoders = anotherContext.objectEncoders;
     this.valueEncoders = anotherContext.valueEncoders;
@@ -165,7 +203,16 @@ final class JsonValueObjectEncoderContext implements ObjectEncoderContext, Value
     if (bytes == null) {
       jsonWriter.nullValue();
     } else {
-      jsonWriter.value(Base64.encodeToString(bytes, Base64.NO_WRAP));
+      String base64Value = Base64.encodeToString(bytes, Base64.NO_WRAP);
+      nullWriter.setConsumeNull(true);
+      try {
+        jsonWriter.nullValue();
+      } finally {
+        nullWriter.setConsumeNull(false);
+      }
+      nullWriter.write("\"");
+      nullWriter.write(base64Value);
+      nullWriter.write("\"");
     }
     return this;
   }
