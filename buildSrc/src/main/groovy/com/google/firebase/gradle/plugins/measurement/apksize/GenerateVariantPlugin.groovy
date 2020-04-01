@@ -32,6 +32,13 @@ class GenerateVariantPlugin implements Plugin<Project> {
             }
             project.dependencies.add("${projectName}Implementation", project.rootProject.project(":${projectName}"))
         }
+
+        project.android {
+            productFlavors.create("firebase-perf") {
+                dimension "apkSize"
+            }
+        }
+        project.dependencies.add("firebase-perfImplementation", "com.google.firebase:firebase-perf:19.0.5")
     }
 
     private boolean isFirebaseProject(Project project) {
