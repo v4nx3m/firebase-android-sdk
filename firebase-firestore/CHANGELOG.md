@@ -1,4 +1,10 @@
 # Unreleased 
+- [changed] Limbo resolution now attempts to resolve a maximum of 100 documents
+  at a time, instead of resolving all at once (#2790). This addresses an issue
+  where the server can fail with "resource exhausted" errors if a large number
+  of documents are in limbo (e.g. 15,000), which can lead to the pathological
+  client behavior seen in
+  https://github.com/firebase/firebase-js-sdk/issues/2683.
 - [fixed] Fixed a performance regression introduced by the addition of
   `Query.limitToLast(n: long)` in Firestore 23.3.1.
 - [changed] Changed the in-memory representation of Firestore documents to
